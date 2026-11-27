@@ -169,6 +169,12 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 .btn-s:hover{background:var(--panel);color:var(--text-1)}.btn-s:disabled{opacity:.5;cursor:default}
 .s-log{margin-top:10px;overflow-y:auto;max-height:70px}
 .s-log::-webkit-scrollbar{width:3px}.s-log::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+.stat-box{background:var(--glass);border:1px solid var(--brd);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:10px}
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:2px 0}
+.stat-k{font-size:.68rem;color:var(--text-3);letter-spacing:.04em}
+.stat-v{font-size:.74rem;color:var(--teal);font-family:var(--fd);font-variant-numeric:tabular-nums}
+.stat-v.pulse{animation:statPulse .8s ease}
+@keyframes statPulse{0%{transform:scale(1)}40%{transform:scale(1.18);color:var(--gold-lt)}100%{transform:scale(1)}}
 .log-entry{font-size:.68rem;color:var(--text-3);padding:2px 0;border-bottom:1px solid rgba(255,255,255,.02);display:flex;justify-content:space-between}
 .log-entry span:last-child{color:var(--text-2)}
 
@@ -375,6 +381,20 @@ html,body{height:100dvh}
       <button class="btn-s" id="pauseBtn" onclick="pauseTimer()" disabled>⏸</button>
       <button class="btn-s" onclick="resetTimer()">↺</button>
     </div>
+    <div class="stat-box">
+      <div class="stat-row">
+        <span class="stat-k">今日专注</span>
+        <span class="stat-v" id="statToday">0 分钟</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-k">今日完成</span>
+        <span class="stat-v" id="statCount">0 次</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-k">累计专注</span>
+        <span class="stat-v" id="statTotal">0 分钟</span>
+      </div>
+    </div>
     <div class="s-log" id="sLog"><div class="log-entry"><span>等待开始</span><span>—</span></div></div>
   </div>
 </div>
@@ -393,7 +413,7 @@ html,body{height:100dvh}
     <button class="cb" onclick="nextTrack()">⏭</button>
     <button class="cb" id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button>
   </div>
-  <div class="vol-wrap"><span>🔊</span><input type="range" class="vol-slider" min="0" max="100" value="70"></div>
+  <div class="vol-wrap"><span>🔊</span><input type="range" class="vol-slider" id="volSlider" min="0" max="100" value="70"></div>
   <button class="track-list-btn" onclick="toggleTrackPopup()">曲目 ▾</button>
 </div>
 
@@ -427,12 +447,64 @@ document.getElementById("bg").style.backgroundImage="url("+BG[0]+")";
 setInterval(function(){bi=(bi+1)%BG.length;document.getElementById("bg").style.backgroundImage="url("+BG[bi]+")";},10000);
 
 /* chars */
+/* ══════════ 本地持久化存储 ══════════ */
+var STORE_KEY="endfield_tavern_v1";
+function todayKey(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
+function loadStore(){
+  var blank={totalMin:0,totalCount:0,today:{date:todayKey(),min:0,count:0},charIdx:2,volume:70,mode:"study"};
+  try{
+    var raw=localStorage.getItem(STORE_KEY);
+    if(!raw) return blank;
+    var s=JSON.parse(raw)||{};
+    var out={
+      totalMin:(typeof s.totalMin==="number"&&isFinite(s.totalMin))?Math.max(0,s.totalMin):0,
+      totalCount:(typeof s.totalCount==="number"&&isFinite(s.totalCount))?Math.max(0,s.totalCount):0,
+      today:(s.today&&typeof s.today==="object")?s.today:null,
+      charIdx:(typeof s.charIdx==="number")?s.charIdx:2,
+      volume:(typeof s.volume==="number"&&s.volume>=0&&s.volume<=100)?s.volume:70,
+      mode:(["study","work","sleep"].indexOf(s.mode)>=0)?s.mode:"study"
+    };
+    if(!out.today||out.today.date!==todayKey()||typeof out.today.min!=="number"||typeof out.today.count!=="number"){
+      out.today={date:todayKey(),min:0,count:0};
+    }
+    if(out.charIdx<0||out.charIdx>6) out.charIdx=2;
+    return out;
+  }catch(e){
+    return blank;
+  }
+}
+var STORE=loadStore();
+function saveStore(){try{localStorage.setItem(STORE_KEY,JSON.stringify(STORE));}catch(e){}}
+function fmtMin(m){return m>=60?(Math.floor(m/60)+" 小时 "+(m%60)+" 分"):(m+" 分钟");}
+function renderStats(pulse){
+  document.getElementById("statToday").textContent=fmtMin(STORE.today.min);
+  document.getElementById("statCount").textContent=STORE.today.count+" 次";
+  document.getElementById("statTotal").textContent=fmtMin(STORE.totalMin);
+  if(pulse){
+    ["statToday","statCount","statTotal"].forEach(function(id){
+      var el=document.getElementById(id);el.classList.remove("pulse");
+      void el.offsetWidth;el.classList.add("pulse");
+    });
+  }
+}
+function recordSession(minutes){
+  if(STORE.today.date!==todayKey()) STORE.today={date:todayKey(),min:0,count:0};
+  STORE.today.min+=minutes;
+  STORE.today.count+=1;
+  STORE.totalMin+=minutes;
+  STORE.totalCount+=1;
+  saveStore();
+  renderStats(true);
+}
+
 let aci=2,carOn=false,carTimer=null,carIdx=0;
 function buildRow(){const r=document.getElementById("charRow");CHARS.forEach(function(c,i){const b=document.createElement("button");b.className="char-btn"+(i===aci?" active":"");const w=document.createElement("div");w.className="ct-wrap";const im=document.createElement("img");im.className="ct-img";im.src=c.img;im.alt=c.name;w.appendChild(im);const l=document.createElement("span");l.className="ct-lbl";l.textContent=c.name;b.appendChild(w);b.appendChild(l);b.onclick=function(){selChar(i)};r.appendChild(b);});}
-function selChar(i){aci=i;const t=document.getElementById("charTv");t.src=CHARS[i].img;t.style.objectFit=CHARS[i].fit;document.querySelectorAll(".char-btn").forEach(function(b,j){b.classList.toggle("active",j===i)});showQ(i);}
+function selChar(i){aci=i;STORE.charIdx=i;saveStore();const t=document.getElementById("charTv");t.src=CHARS[i].img;t.style.objectFit=CHARS[i].fit;document.querySelectorAll(".char-btn").forEach(function(b,j){b.classList.toggle("active",j===i)});showQ(i);}
 var quoteTimer=null;
 function showQ(i){const c=CHARS[i],q=c.quotes[Math.floor(Math.random()*c.quotes.length)],t=document.getElementById("quoteText"),card=document.getElementById("quoteCard");t.textContent=q;document.getElementById("quoteName").textContent="—— "+c.name+" · "+c.nameEn;card.classList.add("show");clearTimeout(quoteTimer);quoteTimer=setTimeout(function(){card.classList.remove("show");},6000);}
 document.getElementById("charTv").src=CHARS[2].img;document.getElementById("charTv").style.objectFit=CHARS[2].fit;
+if(typeof STORE.charIdx==="number"&&STORE.charIdx>=0&&STORE.charIdx<CHARS.length)aci=STORE.charIdx;
+document.getElementById("charTv").src=CHARS[aci].img;document.getElementById("charTv").style.objectFit=CHARS[aci].fit;
 
 document.getElementById("tvScreen").addEventListener("click",function(){if(carOn)stopCarousel();else showQ(aci);});
 
@@ -484,7 +556,7 @@ const ms={study:{l:"学习",d:25},work:{l:"工作",d:50},sleep:{l:"睡眠",d:480
 let ti=null,run=false,paused=false,secs=25*60,tot=25*60,dir="down",mode="study";
 const di=document.getElementById("durInput"),de=document.getElementById("durErr"),sb=document.getElementById("startBtn"),pb=document.getElementById("pauseBtn");
 function setGM(m,b){document.querySelectorAll(".mode-btn").forEach(function(x){x.classList.remove("active");});b.classList.add("active");setTM(m);}
-function setTM(m){mode=m;["study","work","sleep"].forEach(function(x){document.getElementById("pill"+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle("active",x===m);});if(!run){di.value=ms[m].d;tot=ms[m].d*60;secs=dir==="down"?tot:0;rT();rH();uTL();}}
+function setTM(m){mode=m;STORE.mode=m;saveStore();["study","work","sleep"].forEach(function(x){document.getElementById("pill"+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle("active",x===m);});if(!run){di.value=ms[m].d;tot=ms[m].d*60;secs=dir==="down"?tot:0;rT();rH();uTL();}}
 function setDir(d){dir=d;document.getElementById("dirDown").classList.toggle("active",d==="down");document.getElementById("dirUp").classList.toggle("active",d==="up");if(!run){const v=parseInt(di.value)||25;tot=v*60;secs=d==="down"?tot:0;rT();rH();uTL();}}
 function uTL(){const lbl=(ms[mode]?ms[mode].l:"计时")+" · "+(dir==="down"?"倒计时":"正计时");document.getElementById("timeLbl").textContent=lbl;document.getElementById("bigTimeLbl").textContent=(ms[mode]?ms[mode].l:"计时")+" · "+(dir==="down"?"倒计时":"正计时");}
 function valDur(){const v=parseInt(di.value);if(!v||v<1||v>999||isNaN(v)){di.classList.add("err");de.classList.add("show");return false;}di.classList.remove("err");de.classList.remove("show");return v;}
@@ -495,7 +567,7 @@ function resetTimer(){clearInterval(ti);run=false;paused=false;document.getEleme
 function done(){clearInterval(ti);run=false;paused=false;document.getElementById("trickle").setAttribute("opacity","0");sb.textContent="▶ 开始";sb.disabled=false;pb.disabled=true;rT();rH();logS();const td=document.getElementById("timeDisp");td.style.color="var(--teal)";td.style.textShadow="0 0 24px rgba(94,197,180,.7)";document.getElementById("bigTimeNum").style.color="var(--teal)";setTimeout(function(){td.style.color="";td.style.textShadow="";document.getElementById("bigTimeNum").style.color="";document.getElementById("bigTime").classList.remove("show");},4000);}
 function rT(){const s=Math.abs(secs);const str=Math.floor(s/60).toString().padStart(2,"0")+":"+(s%60).toString().padStart(2,"0");document.getElementById("timeDisp").textContent=str;document.getElementById("bigTimeNum").textContent=str;}
 function rH(reset){const pct=reset?1:(dir==="down"?(secs/tot):(1-secs/tot));const th=Math.max(0,Math.min(34,34*pct)),bh=Math.max(0,Math.min(34,34*(1-pct)));document.getElementById("sandT").setAttribute("height",th);document.getElementById("sandT").setAttribute("y",10+(34-th));document.getElementById("sandB").setAttribute("height",bh);document.getElementById("sandB").setAttribute("y",78-bh);}
-function logS(){const n=new Date(),hm=n.getHours().toString().padStart(2,"0")+":"+n.getMinutes().toString().padStart(2,"0");const d=parseInt(di.value)||0;const lg=document.getElementById("sLog"),e=document.createElement("div");e.className="log-entry";e.innerHTML="<span>"+hm+" · "+(ms[mode]?ms[mode].l:"计时")+"</span><span>"+d+" 分钟 ✓</span>";lg.insertBefore(e,lg.firstChild);}
+function logS(){recordSession(parseInt(di.value)||0);const n=new Date(),hm=n.getHours().toString().padStart(2,"0")+":"+n.getMinutes().toString().padStart(2,"0");const d=parseInt(di.value)||0;const lg=document.getElementById("sLog"),e=document.createElement("div");e.className="log-entry";e.innerHTML="<span>"+hm+" · "+(ms[mode]?ms[mode].l:"计时")+"</span><span>"+d+" 分钟 ✓</span>";lg.insertBefore(e,lg.firstChild);}
 rT();rH(true);uTL();
 
 /* BGM */
@@ -578,7 +650,25 @@ function seekTrack(e){
 function toggleTrackPopup(){document.getElementById("trackPopup").classList.toggle("open");}
 document.addEventListener("click",function(e){if(!e.target.closest("#trackPopup")&&!e.target.closest(".track-list-btn"))document.getElementById("trackPopup").classList.remove("open");});
 
-buildRow();buildTL();
+buildRow();buildTL();renderStats();
+
+/* ── 恢复音量 / 模式 / 角色 ── */
+(function(){
+  var vs=document.getElementById("volSlider");
+  var v=(typeof STORE.volume==="number")?STORE.volume:70;
+  vs.value=v;AUD.volume=v/100;
+  vs.addEventListener("input",function(){
+    AUD.volume=(this.value/100);
+    STORE.volume=parseInt(this.value,10);saveStore();
+  });
+  var savedMode=STORE.mode||"study";
+  var btn=document.querySelector('.mode-btn[onclick*="'+savedMode+'"]');
+  if(btn) setGM(savedMode,btn); else setTM(savedMode);
+  if(typeof STORE.charIdx==="number"&&STORE.charIdx>=0&&STORE.charIdx<CHARS.length){
+    document.querySelectorAll(".char-btn").forEach(function(b,j){b.classList.toggle("active",j===STORE.charIdx);});
+  }
+  saveStore();
+})();
 function syncBarH(){var b=document.getElementById("musicBar");if(b)document.documentElement.style.setProperty("--mbh",b.offsetHeight+"px");}
 syncBarH();window.addEventListener("resize",syncBarH);window.addEventListener("orientationchange",syncBarH);window.addEventListener("load",syncBarH);
 </script>
