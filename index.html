@@ -216,8 +216,24 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #toast.err{border-color:rgba(232,96,112,.6);color:var(--err)}
 .track-pill.imported{border-color:rgba(94,197,180,.4)}
-.track-pill .tr-del{margin-left:8px;color:var(--text-3);font-size:.8rem}
-.track-pill .tr-del:hover{color:var(--err)}
+.track-pill .tr-del{margin-left:6px;color:var(--text-3);font-size:.8rem;padding:2px 4px;border-radius:4px;flex-shrink:0}
+.track-pill .tr-del:hover{color:var(--err);background:rgba(232,96,112,.12)}
+#trackPopup .track-pill{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:4px;}
+.track-pill .tr-num{font-size:.68rem;color:var(--text-3);min-width:14px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+.track-pill .tr-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track-pill .tr-dur{font-size:.66rem;color:var(--text-3);font-variant-numeric:tabular-nums;flex-shrink:0}
+.track-pill.imported{cursor:grab}
+.track-pill.imported .tr-num{color:var(--teal)}
+.track-pill.dragging{opacity:.45;cursor:grabbing;transform:scale(1.02)}
+.tr-mv{color:var(--text-3);font-size:.62rem;padding:2px 3px;border-radius:4px;flex-shrink:0;cursor:pointer;line-height:1}
+.tr-mv:hover{color:var(--gold-lt);background:rgba(201,168,110,.14)}
+.tr-up:hover,.tr-dn:hover{color:var(--gold-lt)}
+.track-pill.imported{touch-action:pan-y}
+.track-pill.drop-over{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;transform:translateX(3px)}
+#trackPopup{max-height:min(60vh,420px);overflow-y:auto;}
+#trackPopup::-webkit-scrollbar{width:4px}
+#trackPopup::-webkit-scrollbar-thumb{background:var(--brd);border-radius:4px}
+.tl-hint{font-size:.64rem;color:var(--text-3);padding:2px 4px 6px;border-bottom:1px solid var(--brd);margin-bottom:6px;display:flex;justify-content:space-between}
 
 /* track popup */
 #trackPopup{
@@ -273,8 +289,13 @@ html,body{height:100dvh}
   .prog-bg{height:5px}
   .vol-wrap{display:none}
   .track-list-btn{order:4;padding:8px 12px;font-size:.76rem}
-  #trackPopup{left:14px;right:14px;bottom:calc(var(--mbh,120px) + 8px)}
-  .track-pill{padding:10px 14px;font-size:.84rem}
+  #trackPopup{left:14px;right:14px;bottom:calc(var(--mbh,120px) + 8px);max-height:52vh}
+  .track-pill{padding:11px 12px;font-size:.86rem;gap:9px}
+  .tr-mv{font-size:.78rem;padding:6px 7px;min-width:26px;text-align:center}
+  .tr-del{font-size:.9rem;padding:6px 7px;min-width:26px;text-align:center}
+  .track-pill .tr-num{font-size:.72rem}
+  .track-pill .tr-dur{font-size:.7rem}
+  .tl-hint{font-size:.66rem}
 
   #timerPanel{right:12px;left:auto;bottom:calc(var(--mbh,120px) + 10px);width:min(250px,calc(100vw - 24px))}
   #timerPanel.collapsed{width:130px}
@@ -431,7 +452,9 @@ html,body{height:100dvh}
 </div>
 
 <!-- 曲目弹出 -->
-<div id="trackPopup"></div>
+<div id="trackPopup">
+  <div class="tl-hint"><span>播放列表</span><span>本地曲目可拖动排序</span></div>
+</div>
 
 <!-- Q版角色容器 -->
 <div id="qCont"></div>
@@ -692,37 +715,201 @@ function loadTrack(i){
   document.getElementById("progFill").style.width="0%";
   document.getElementById("trackPopup").querySelectorAll(".track-pill").forEach(function(p,j){p.classList.toggle("active",j===i);});
 }
+var dragFrom=-1;
 function buildTL(keepIdx){
   const tl=document.getElementById("trackPopup");
+  var hint=tl.querySelector(".tl-hint");
   tl.innerHTML="";
+  if(hint) tl.appendChild(hint);
   TK.forEach(function(t,i){
     const p=document.createElement("div");
     p.className="track-pill"+(i===ct2?" active":"")+(t.local?" imported":"");
+    p.setAttribute("draggable","true");
+    p.dataset.idx=i;
+
+    // 序号
+    const num=document.createElement("span");
+    num.className="tr-num";
+    num.textContent=(i+1);
+    p.appendChild(num);
+
     const nm=document.createElement("span");
     nm.className="tr-name";
     nm.textContent=t.n;
     p.appendChild(nm);
+
+    // 时长
+    const du=document.createElement("span");
+    du.className="tr-dur";
+    du.textContent=t.d||"--:--";
+    p.appendChild(du);
+
     if(t.local){
+      // ── 移动按钮组（手机/键盘友好）──
+      const up=document.createElement("span");
+      up.className="tr-mv tr-up";
+      up.textContent="▲";
+      up.title="上移";
+      up.onclick=function(e){
+        e.stopPropagation();
+        var from=indexOfTrack(t);
+        moveTrack(from,from-1);
+      };
+      const dn=document.createElement("span");
+      dn.className="tr-mv tr-dn";
+      dn.textContent="▼";
+      dn.title="下移";
+      dn.onclick=function(e){
+        e.stopPropagation();
+        var from=indexOfTrack(t);
+        moveTrack(from,from+2);
+      };
+      p.appendChild(up);
+      p.appendChild(dn);
+
       const del=document.createElement("span");
       del.className="tr-del";
       del.textContent="✕";
       del.title="移除该本地曲目";
-      del.onclick=function(e){e.stopPropagation();removeLocalTrack(i);};
+      del.onclick=function(e){e.stopPropagation();removeLocalTrack(indexOfTrack(t));};
       p.appendChild(del);
     }
-    p.onclick=function(){selT(i);toggleTrackPopup();};
+
+    p.onclick=function(){
+      if(p._justDragged){p._justDragged=false;return;}
+      selT(i);toggleTrackPopup();
+    };
+
+    // ── 触屏拖拽排序（HTML5 DnD 在手机上不可用）──
+    if(t.local) bindTouchDrag(p,t);
+
+    // ── 拖拽排序（仅本地曲目可拖动）──
+    if(t.local){
+      p.addEventListener("dragstart",function(e){
+        dragFrom=i;
+        p.classList.add("dragging");
+        try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(i));}catch(err){}
+      });
+      p.addEventListener("dragend",function(){
+        p.classList.remove("dragging");
+        dragFrom=-1;
+        tl.querySelectorAll(".track-pill").forEach(function(x){x.classList.remove("drop-over");});
+      });
+    }
+    p.addEventListener("dragover",function(e){
+      if(dragFrom<0||dragFrom===i) return;
+      if(!TK[dragFrom]||!TK[dragFrom].local) return;
+      e.preventDefault();
+      try{e.dataTransfer.dropEffect="move";}catch(err){}
+      p.classList.add("drop-over");
+    });
+    p.addEventListener("dragleave",function(){p.classList.remove("drop-over");});
+    p.addEventListener("drop",function(e){
+      e.preventDefault();
+      p.classList.remove("drop-over");
+      if(dragFrom<0||dragFrom===i) return;
+      if(!TK[dragFrom]||!TK[dragFrom].local) return;
+      moveTrack(dragFrom,i);
+      dragFrom=-1;
+    });
+
     tl.appendChild(p);
   });
-  if(keepIdx===undefined) loadTrack(0);
+  if(keepIdx!==undefined && TK[keepIdx]) loadTrack(keepIdx);
+  else if(keepIdx===undefined) loadTrack(0);
   refreshTrackLabels();
 }
+
+/* 按对象引用查找当前索引（排序后索引会变） */
+function indexOfTrack(item){
+  for(var i=0;i<TK.length;i++){if(TK[i]===item) return i;}
+  return -1;
+}
+
+/* 触屏长按拖动排序 */
+function bindTouchDrag(row,item){
+  var timer=null,dragging=false,startY=0,ghost=null,lastOver=-1;
+  row.addEventListener("touchstart",function(e){
+    if(e.touches.length!==1) return;
+    var touch=e.touches[0];
+    startY=touch.clientY;
+    timer=setTimeout(function(){
+      dragging=true;
+      row.classList.add("dragging");
+      if(navigator.vibrate) try{navigator.vibrate(12);}catch(err){}
+    },260);
+  },{passive:true});
+
+  row.addEventListener("touchmove",function(e){
+    if(!dragging) return;
+    if(e.cancelable) e.preventDefault();
+    var y=e.touches[0].clientY;
+    var tl=document.getElementById("trackPopup");
+    var rows=tl.querySelectorAll(".track-pill");
+    var hit=-1;
+    for(var k=0;k<rows.length;k++){
+      var r=rows[k].getBoundingClientRect();
+      if(y>=r.top&&y<=r.bottom){hit=k;break;}
+    }
+    rows.forEach(function(x){x.classList.remove("drop-over");});
+    if(hit>=0&&hit!==indexOfTrack(item)){
+      rows[hit].classList.add("drop-over");
+      lastOver=hit;
+    }
+  },{passive:false});
+
+  row.addEventListener("touchend",function(e){
+    clearTimeout(timer);
+    row.classList.remove("dragging");
+    if(dragging){
+      row._justDragged=true;
+      dragging=false;
+      var tl=document.getElementById("trackPopup");
+      tl.querySelectorAll(".track-pill").forEach(function(x){x.classList.remove("drop-over");});
+      // 在 touchend 里读不到 touch，用最后一次命中的目标
+      if(lastOver>=0){
+        var from=indexOfTrack(item);
+        if(from>=0&&from!==lastOver) moveTrack(from,lastOver>from?lastOver+1:lastOver);
+      }
+      lastOver=-1;
+      setTimeout(function(){row._justDragged=false;},350);
+    }
+  },{passive:true});
+
+  row.addEventListener("touchcancel",function(){
+    clearTimeout(timer);
+    dragging=false;
+    row.classList.remove("dragging");
+    lastOver=-1;
+  },{passive:true});
+}
+
+/* 把 from 位置的曲目移到 to 位置 */
+function moveTrack(from,to){
+  if(from===to||!TK[from]) return;
+  var curId=TK[ct2]?TK[ct2].id:null;
+  var item=TK.splice(from,1)[0];
+  if(to>from) to--;
+  to=Math.max(0,Math.min(TK.length,to));
+  if(item.local && to<builtinCount()) to=builtinCount(); // 最多移到内置曲目之后
+  TK.splice(to,0,item);
+  // 恢复当前选中项
+  if(curId){for(var i=0;i<TK.length;i++){if(TK[i].id===curId){ct2=i;break;}}}
+  buildTL(ct2);
+  showToast("已调整「"+item.n+"」的位置");
+}
+
+/* 内置曲目数量（不可移动的起始几首） */
+function builtinCount(){var n=0;for(var i=0;i<TK.length;i++){if(!TK[i].local) n++;else break;}return n;}
 function refreshTrackLabels(){
   const tl=document.getElementById("trackPopup");
   const pills=tl.querySelectorAll(".track-pill");
   TK.forEach(function(t,i){
-    if(t.local&&pills[i]){
+    if(pills[i]){
       const nm=pills[i].querySelector(".tr-name");
-      if(nm) nm.textContent=t.n;
+      if(nm&&t.n) nm.textContent=t.n;
+      const du=pills[i].querySelector(".tr-dur");
+      if(du&&t.d) du.textContent=t.d;
     }
   });
   if(TK[ct2]&&TK[ct2].local&&TK[ct2].t) document.getElementById("tTot").textContent=TK[ct2].d;
