@@ -207,6 +207,17 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 .vol-slider::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--violet);border-radius:50%;cursor:pointer}
 .track-list-btn{padding:4px 10px;background:var(--glass);border:1px solid var(--brd);border-radius:30px;font-size:.7rem;color:var(--text-3);cursor:pointer;transition:all .18s;white-space:nowrap}
 .track-list-btn:hover{color:var(--text-2)}
+.add-btn{color:var(--teal);border-color:rgba(94,197,180,.45)}
+.add-btn:hover{color:var(--teal);background:rgba(94,197,180,.12)}
+#toast{position:fixed;left:50%;bottom:calc(var(--mbh,90px) + 16px);transform:translate(-50%,12px);z-index:500;
+  background:rgba(8,7,20,.95);border:1px solid rgba(94,197,180,.5);border-radius:30px;padding:9px 18px;
+  font-size:.8rem;color:var(--teal);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.err{border-color:rgba(232,96,112,.6);color:var(--err)}
+.track-pill.imported{border-color:rgba(94,197,180,.4)}
+.track-pill .tr-del{margin-left:8px;color:var(--text-3);font-size:.8rem}
+.track-pill .tr-del:hover{color:var(--err)}
 
 /* track popup */
 #trackPopup{
@@ -414,7 +425,9 @@ html,body{height:100dvh}
     <button class="cb" id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button>
   </div>
   <div class="vol-wrap"><span>🔊</span><input type="range" class="vol-slider" id="volSlider" min="0" max="100" value="70"></div>
+  <button class="track-list-btn add-btn" onclick="pickLocalAudio()" title="从电脑导入 MP3">＋ 本地音乐</button>
   <button class="track-list-btn" onclick="toggleTrackPopup()">曲目 ▾</button>
+  <input type="file" id="audioPicker" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" multiple style="display:none">
 </div>
 
 <!-- 曲目弹出 -->
@@ -422,6 +435,7 @@ html,body{height:100dvh}
 
 <!-- Q版角色容器 -->
 <div id="qCont"></div>
+<div id="toast"></div>
 
 <script>
 const IMG={"zhuangfangyi": "assets/char/zhuangfangyi.png", "adashir": "assets/char/adashir.png", "admin": "assets/char/admin.jpg", "chenqianyu": "assets/char/chenqianyu.png", "jue": "assets/char/jue.png", "kamille": "assets/char/kamille.png", "tangtang": "assets/char/tangtang.png"};
@@ -447,7 +461,75 @@ document.getElementById("bg").style.backgroundImage="url("+BG[0]+")";
 setInterval(function(){bi=(bi+1)%BG.length;document.getElementById("bg").style.backgroundImage="url("+BG[bi]+")";},10000);
 
 /* chars */
-/* ══════════ 本地持久化存储 ══════════ */
+/* ══════════ 本地音频导入 ══════════ */
+var localTrackSeq=0;
+function fmtTime(sec){
+  if(!isFinite(sec)||sec<0) return "0:00";
+  var m=Math.floor(sec/60),s=Math.floor(sec%60);
+  return m+":"+s.toString().padStart(2,"0");
+}
+function pickLocalAudio(){document.getElementById("audioPicker").click();}
+document.getElementById("audioPicker").addEventListener("change",function(){
+  var files=this.files;
+  if(!files||!files.length) return;
+  var added=0,skipped=0,firstNewIdx=TK.length;
+  var pending=0;
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    if(!/^audio\//.test(f.type) && !/\.(mp3|m4a|wav|ogg|flac|aac)$/i.test(f.name)){skipped++;continue;}
+    var url=URL.createObjectURL(f);
+    var title=f.name.replace(/\.[^.]+$/,"");
+    var item={
+      n:title,
+      s:"本地音乐 · "+Math.round(f.size/1024/1024*10)/10+" MB",
+      d:"--:--",
+      t:0,
+      file:url,
+      local:true,
+      id:"local_"+(++localTrackSeq)
+    };
+    TK.push(item);
+    added++;
+    // 异步读取真实时长写入标签
+    (function(it,u){
+      pending++;
+      var probe=new Audio();
+      probe.preload="metadata";
+      var done=function(){
+        var dur=probe.duration;
+        if(isFinite(dur)&&dur>0){
+          it.t=dur;
+          it.d=fmtTime(dur);
+          refreshTrackLabels();
+          if(TK[ct2]===it) document.getElementById("tTot").textContent=it.d;
+        }
+      };
+      probe.addEventListener("loadedmetadata",done);
+      probe.addEventListener("durationchange",done);
+      probe.addEventListener("error",function(){});
+      probe.src=u;
+    })(item,url);
+  }
+  this.value="";
+  if(added>0){
+    buildTL(lastSelIndex());
+    selT(firstNewIdx);
+    toggleTrackPopup();
+    showToast("已导入 "+added+" 首本地音乐"+(skipped?"，跳过 "+skipped+" 个非音频文件":""));
+  }else if(skipped>0){
+    showToast("所选文件不是音频格式",true);
+  }
+});
+function lastSelIndex(){return ct2;}
+function showToast(msg,isErr){
+  var t=document.getElementById("toast");
+  if(!t) return;
+  t.textContent=msg;
+  t.classList.toggle("err",!!isErr);
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){t.classList.remove("show");},2600);
+}
 var STORE_KEY="endfield_tavern_v1";
 function todayKey(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
 function loadStore(){
@@ -600,29 +682,86 @@ AUD.addEventListener("error",function(){
 });
 
 function loadTrack(i){
+  if(!TK[i]) return;
+  ct2=i;
   AUD.src=TK[i].file;
   document.getElementById("trackName").textContent=TK[i].n;
   document.getElementById("trackSub").textContent=TK[i].s;
   document.getElementById("tTot").textContent=TK[i].d;
   document.getElementById("tCur").textContent="0:00";
   document.getElementById("progFill").style.width="0%";
-  document.querySelectorAll(".track-pill").forEach(function(p,j){p.classList.toggle("active",j===i);});
+  document.getElementById("trackPopup").querySelectorAll(".track-pill").forEach(function(p,j){p.classList.toggle("active",j===i);});
 }
-function buildTL(){
+function buildTL(keepIdx){
   const tl=document.getElementById("trackPopup");
+  tl.innerHTML="";
   TK.forEach(function(t,i){
     const p=document.createElement("div");
-    p.className="track-pill"+(i===0?" active":"");
-    p.textContent=t.n;
+    p.className="track-pill"+(i===ct2?" active":"")+(t.local?" imported":"");
+    const nm=document.createElement("span");
+    nm.className="tr-name";
+    nm.textContent=t.n;
+    p.appendChild(nm);
+    if(t.local){
+      const del=document.createElement("span");
+      del.className="tr-del";
+      del.textContent="✕";
+      del.title="移除该本地曲目";
+      del.onclick=function(e){e.stopPropagation();removeLocalTrack(i);};
+      p.appendChild(del);
+    }
     p.onclick=function(){selT(i);toggleTrackPopup();};
     tl.appendChild(p);
   });
-  loadTrack(0);
+  if(keepIdx===undefined) loadTrack(0);
+  refreshTrackLabels();
+}
+function refreshTrackLabels(){
+  const tl=document.getElementById("trackPopup");
+  const pills=tl.querySelectorAll(".track-pill");
+  TK.forEach(function(t,i){
+    if(t.local&&pills[i]){
+      const nm=pills[i].querySelector(".tr-name");
+      if(nm) nm.textContent=t.n;
+    }
+  });
+  if(TK[ct2]&&TK[ct2].local&&TK[ct2].t) document.getElementById("tTot").textContent=TK[ct2].d;
+}
+function removeLocalTrack(i){
+  if(!TK[i]) return;
+  const wasCurrent=(i===ct2);
+  const wasPlaying=playing;
+  URL.revokeObjectURL(TK[i].file);
+  TK.splice(i,1);
+  if(TK.length===0){
+    AUD.pause();playing=false;
+    document.getElementById("playBtn").textContent="▶";
+    document.getElementById("album").classList.remove("spin");
+    document.getElementById("trackName").textContent="暂无曲目";
+    document.getElementById("trackSub").textContent="点击「＋ 本地音乐」导入";
+    document.getElementById("progFill").style.width="0%";
+    document.getElementById("tCur").textContent="0:00";
+    document.getElementById("tTot").textContent="0:00";
+    buildTL();return;
+  }
+  if(i<ct2) ct2--;
+  if(wasCurrent){
+    ct2=Math.min(i,TK.length-1);
+    loadTrack(ct2);
+    if(wasPlaying) AUD.play();
+  }else{
+    ct2=Math.min(ct2,TK.length-1);
+  }
+  buildTL(ct2);
+  showToast("已移除该曲目");
 }
 function selT(i){
-  ct2=i;
+  if(!TK[i]) return;
   loadTrack(i);
-  if(playing){AUD.play();}
+  if(playing){
+    const pr=AUD.play();
+    if(pr&&pr.catch) pr.catch(function(){playing=false;document.getElementById("playBtn").textContent="▶";document.getElementById("album").classList.remove("spin");});
+  }
 }
 function togglePlay(){
   if(playing){
