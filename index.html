@@ -250,6 +250,24 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 /* ── Q版角色 ── */
 .q-char{position:fixed;z-index:400;width:96px;pointer-events:none;opacity:0;transition:opacity .32s;user-select:none;filter:drop-shadow(0 6px 16px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(94,197,180,.25))}
 .q-char.on{opacity:1;pointer-events:all}
+.qc-look{transform-origin:50% 88%;transition:transform .45s cubic-bezier(.34,1.4,.64,1);will-change:transform}
+.qc-turn{transform-origin:50% 92%;will-change:transform}
+.qc-turn.idle-turn{animation:qcIdleTurn 7.5s ease-in-out infinite}
+.qc-breathe{animation:qcBreathe 3.6s ease-in-out infinite;transform-origin:50% 100%;will-change:transform}
+.qc-breathe.d2{animation-duration:4.1s;animation-delay:-1.3s}
+.qc-breathe.d3{animation-duration:3.2s;animation-delay:-2.1s}
+@keyframes qcBreathe{
+  0%,100%{transform:translateY(0) scaleY(1) scaleX(1)}
+  45%{transform:translateY(-2px) scaleY(1.022) scaleX(.994)}
+  70%{transform:translateY(-1px) scaleY(1.012) scaleX(.997)}
+}
+/* 待机时偶尔轻轻歪头 —— 模拟"注意到你"的生动感 */
+@keyframes qcIdleTurn{
+  0%,88%,100%{transform:rotate(0)}
+  92%{transform:rotate(-2.2deg)}
+  96%{transform:rotate(1.6deg)}
+}
+
 .q-char .qc-body{width:100%;height:auto;cursor:grab;user-select:none;-webkit-user-drag:none;display:block;animation:qcFloat 3s ease-in-out infinite;transform-origin:50% 92%}
 .q-char .qc-body:active{cursor:grabbing}
 .q-char.dragging .qc-body{animation:none;transform:scale(1.06)}
@@ -649,7 +667,78 @@ function stopCarousel(){
 
 /* Q chars */
 let qChars={};
-function spawnQC(ci,sx,sy){const c=CHARS[ci];if(qChars[c.id]){moveQC(qChars[c.id],sx-48,sy-48);return;}const w=document.createElement("div");w.className="q-char pop"+(c.card?" qc-card":"");w.style.left=(sx-48)+"px";w.style.top=(sy-48)+"px";const bub=document.createElement("div");bub.className="q-bubble";bub.textContent=c.quotes[Math.floor(Math.random()*c.quotes.length)];const img=document.createElement("img");img.className="qc-body";img.src=c.img;img.alt=c.name;img.draggable=false;w.appendChild(bub);w.appendChild(img);document.getElementById("qCont").appendChild(w);requestAnimationFrame(function(){requestAnimationFrame(function(){w.classList.add("on");w.classList.remove("pop");});});qChars[c.id]=w;img.addEventListener("click",function(e){e.stopPropagation();bub.textContent=c.quotes[Math.floor(Math.random()*c.quotes.length)];bub.style.opacity="1";w.classList.add("bounce");setTimeout(function(){w.classList.remove("bounce");},560);setTimeout(function(){bub.style.opacity="";},2200);});img.addEventListener("dblclick",function(e){e.stopPropagation();w.style.opacity="0";setTimeout(function(){w.remove();delete qChars[c.id];},350);});makeDrag(w,img);}
+function spawnQC(ci,sx,sy){
+const c=CHARS[ci];
+if(qChars[c.id]){moveQC(qChars[c.id],sx-48,sy-48);return;}
+const w=document.createElement("div");
+w.className="q-char pop"+(c.card?" qc-card":"");
+w.style.left=(sx-48)+"px";w.style.top=(sy-48)+"px";
+const bub=document.createElement("div");
+bub.className="q-bubble";
+bub.textContent=c.quotes[Math.floor(Math.random()*c.quotes.length)];
+// 视线层 > 呼吸层 > 图片
+const look=document.createElement("div");look.className="qc-look";
+const turn=document.createElement("div");turn.className="qc-turn idle-turn";
+const breath=document.createElement("div");breath.className="qc-breathe "+["","d2","d3"][Math.floor(Math.random()*3)];
+const img=document.createElement("img");
+img.className="qc-body";img.src=c.img;img.alt=c.name;img.draggable=false;
+breath.appendChild(img);turn.appendChild(breath);look.appendChild(turn);
+w.appendChild(bub);w.appendChild(look);
+document.getElementById("qCont").appendChild(w);
+requestAnimationFrame(function(){requestAnimationFrame(function(){w.classList.add("on");w.classList.remove("pop");});});
+qChars[c.id]=w;
+w._lookEl=look;
+img.addEventListener("click",function(e){
+  e.stopPropagation();
+  bub.textContent=c.quotes[Math.floor(Math.random()*c.quotes.length)];
+  bub.style.opacity="1";
+  w.classList.add("bounce");
+  setTimeout(function(){w.classList.remove("bounce");},560);
+  setTimeout(function(){bub.style.opacity="";},2200);
+});
+img.addEventListener("dblclick",function(e){
+  e.stopPropagation();
+  w.style.opacity="0";
+  setTimeout(function(){w.remove();delete qChars[c.id];},350);
+});
+makeDrag(w,img);
+updateGazeSingle(w);
+}
+
+/* ══════════ 视线追踪 ══════════ */
+var gazeX=0,gazeY=0,gazeRaf=null;
+function updateGazeSingle(el){
+  if(!el||!el._lookEl) return;
+  if(el.classList.contains("dragging")){
+    el._lookEl.style.transform=el._lookEl._frozen||"";
+    return;
+  }
+  var r=el.getBoundingClientRect();
+  if(!r.width) return;
+  var cx=r.left+r.width/2, cy=r.top+r.height*0.35;
+  var ang=Math.atan2(gazeY-cy,gazeX-cx);
+  var dx=Math.cos(ang), dy=Math.sin(ang);
+  // 倾斜幅度限制在 ±7°
+  var tilt=dx*7;
+  el._lookEl.style.transform="rotate("+tilt.toFixed(2)+"deg) translateX("+(dx*3).toFixed(1)+"px) translateY("+(dy*2).toFixed(1)+"px)";
+}
+function updateAllGaze(){
+  gazeRaf=null;
+  for(var k in qChars){ if(qChars[k]) updateGazeSingle(qChars[k]); }
+}
+var gazeLast=0;
+function onPointerMove(e){
+  var p=e.touches?e.touches[0]:e;
+  if(!p) return;
+  gazeX=p.clientX; gazeY=p.clientY;
+  var now=Date.now();
+  if(now-gazeLast<48) return;   // ~20fps 节流，省性能
+  gazeLast=now;
+  updateAllGaze();
+}
+document.addEventListener("mousemove",onPointerMove,{passive:true});
+document.addEventListener("touchmove",onPointerMove,{passive:true});
+
 function moveQC(el,x,y){el.style.left=x+"px";el.style.top=y+"px";}
 function makeDrag(el,h){let d=false,ox=0,oy=0;h.addEventListener("mousedown",function(e){d=true;ox=e.clientX-parseInt(el.style.left||0);oy=e.clientY-parseInt(el.style.top||0);el.classList.add("dragging");e.preventDefault();document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);});h.addEventListener("touchstart",function(e){d=true;const t=e.touches[0];ox=t.clientX-parseInt(el.style.left||0);oy=t.clientY-parseInt(el.style.top||0);el.classList.add("dragging");document.addEventListener("touchmove",mvt,{passive:false});document.addEventListener("touchend",upt);},{passive:true});function mv(e){if(!d)return;el.style.left=(e.clientX-ox)+"px";el.style.top=(e.clientY-oy)+"px";}function mvt(e){if(!d)return;if(e.cancelable)e.preventDefault();const t=e.touches[0];el.style.left=(t.clientX-ox)+"px";el.style.top=(t.clientY-oy)+"px";}function up(){d=false;el.classList.remove("dragging");document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);}function upt(){d=false;el.classList.remove("dragging");document.removeEventListener("touchmove",mvt);document.removeEventListener("touchend",upt);}}
 
