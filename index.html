@@ -127,8 +127,15 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 
 /* ── 计时控制面板（右侧浮动，收起/展开） ── */
 /* ══ 待办清单 ══ */
+#rightCol{
+  position:fixed;right:20px;top:70px;bottom:90px;z-index:11;
+  width:246px;display:flex;flex-direction:column;gap:12px;
+  pointer-events:none;
+}
+#rightCol > *{pointer-events:auto}
 #todoPanel{
-  position:fixed;right:20px;bottom:calc(var(--tp-h,540px) + 26px);z-index:10;
+  position:relative;right:auto;top:auto;z-index:auto;
+  flex:0 1 auto;min-height:0;
   width:246px;
   background:var(--panel);border:1px solid var(--brd);border-radius:var(--r);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -172,8 +179,8 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 .todo-foot{font-size:.62rem;color:var(--text-3);text-align:center;margin-top:8px;letter-spacing:.03em}
 
 #timerPanel{
-  position:fixed;right:20px;bottom:90px;z-index:10;
-  width:220px;
+  position:relative;right:auto;bottom:auto;z-index:auto;
+  width:100%;flex:0 0 auto;margin-top:auto;
   background:var(--panel);border:1px solid var(--brd);border-radius:var(--r);
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   box-shadow:var(--sh);overflow:hidden;
@@ -346,8 +353,10 @@ html,body{height:100dvh}
   .track-pill .tr-dur{font-size:.7rem}
   .tl-hint{font-size:.66rem}
 
-  #timerPanel{right:12px;left:auto;bottom:calc(var(--mbh,120px) + 10px);width:min(250px,calc(100vw - 24px))}
-  #todoPanel{right:12px;left:12px;width:auto;bottom:calc(var(--mbh,120px) + var(--tp-h,300px) + 20px);max-height:240px}
+  #rightCol{right:10px;left:10px;width:auto;top:112px;bottom:calc(var(--mbh,120px) + 10px);gap:10px}
+  #timerPanel{width:100%}
+  #todoPanel{width:100%;max-height:44vh}
+  .todo-list{max-height:calc(44vh - 110px)}
   .todo-list{max-height:150px}
   .ti-del{opacity:.75}
   .todo-input,.todo-time{font-size:.82rem;padding:9px}
@@ -430,6 +439,8 @@ html,body{height:100dvh}
 </div>
 
 <!-- 计时面板（右侧，可收起） -->
+<!-- 右侧栏：待办 + 番茄钟 -->
+<div id="rightCol">
 <!-- 待办清单（番茄钟上方） -->
 <div id="todoPanel">
   <div class="tp-header" onclick="toggleTodo()">
@@ -505,6 +516,8 @@ html,body{height:100dvh}
 </div>
 
 <!-- 底部音乐条 -->
+</div>
+
 <div id="musicBar">
   <div class="album" id="album">🎼</div>
   <div class="track-info"><div class="track-name" id="trackName">晨光序曲</div><div class="track-sub" id="trackSub">帝江号 OST</div></div>
