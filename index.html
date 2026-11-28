@@ -126,6 +126,51 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 .mode-btn.active{background:linear-gradient(135deg,rgba(201,168,110,.22),rgba(201,168,110,.06));border-color:var(--gold);color:var(--gold-lt)}
 
 /* ── 计时控制面板（右侧浮动，收起/展开） ── */
+/* ══ 待办清单 ══ */
+#todoPanel{
+  position:fixed;right:20px;bottom:calc(var(--tp-h,540px) + 26px);z-index:10;
+  width:246px;
+  background:var(--panel);border:1px solid var(--brd);border-radius:var(--r);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  box-shadow:var(--sh);overflow:hidden;
+  transition:max-height .32s ease,opacity .3s;
+  max-height:400px;
+}
+#todoPanel::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,110,.35),transparent)}
+#todoPanel.collapsed{max-height:44px;opacity:.88}
+#todoPanel.collapsed .tp-toggle{transform:rotate(180deg)}
+.tp-badge{font-size:.64rem;color:var(--teal);margin-left:auto;margin-right:8px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.todo-add{display:flex;gap:5px;margin-bottom:8px}
+.todo-input{flex:1;min-width:0;padding:7px 9px;background:var(--glass);border:1px solid var(--brd);border-radius:var(--r-sm);color:var(--text-1);font-size:.78rem;font-family:var(--fb);outline:none;transition:border-color .18s}
+.todo-input:focus{border-color:var(--gold)}
+.todo-input.err{border-color:var(--err);box-shadow:0 0 8px rgba(232,96,112,.2)}
+.todo-input::placeholder{color:var(--text-3)}
+.todo-time{width:78px;padding:6px 4px;background:var(--glass);border:1px solid var(--brd);border-radius:var(--r-sm);color:var(--text-2);font-size:.72rem;font-family:var(--fb);outline:none;text-align:center;flex-shrink:0}
+.todo-time:focus{border-color:var(--gold)}
+.todo-time::-webkit-calendar-picker-indicator{filter:invert(.55) sepia(1) saturate(3) hue-rotate(340deg);cursor:pointer;opacity:.65}
+.todo-addbtn{width:32px;padding:0;background:linear-gradient(135deg,rgba(201,168,110,.26),rgba(201,168,110,.08));border:1px solid var(--gold);border-radius:var(--r-sm);color:var(--gold-lt);font-size:.95rem;cursor:pointer;transition:all .18s;flex-shrink:0}
+.todo-addbtn:hover{box-shadow:0 0 12px rgba(201,168,110,.25)}
+.todo-err{font-size:.68rem;color:var(--err);margin:-4px 0 6px 2px;height:0;overflow:hidden;transition:height .2s}
+.todo-err.show{height:16px}
+.todo-list{overflow-y:auto;max-height:236px;display:flex;flex-direction:column;gap:5px}
+.todo-list::-webkit-scrollbar{width:3px}
+.todo-list::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+.todo-item{display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(255,255,255,.025);border:1px solid rgba(200,185,230,.09);border-radius:9px;transition:all .2s;cursor:pointer;position:relative}
+.todo-item:hover{background:rgba(255,255,255,.05);border-color:rgba(201,168,110,.25)}
+.todo-item.done{opacity:.45}
+.todo-item.done .ti-text{text-decoration:line-through;text-decoration-color:var(--teal);color:var(--text-3)}
+.todo-item.overdue{border-color:rgba(232,96,112,.45);background:rgba(232,96,112,.06)}
+.ti-check{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--text-3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--teal);transition:all .2s}
+.todo-item.done .ti-check{border-color:var(--teal);background:rgba(94,197,180,.18)}
+.ti-text{flex:1;min-width:0;font-size:.76rem;color:var(--text-1);line-height:1.35;word-break:break-word}
+.ti-time{font-size:.64rem;color:var(--text-3);flex-shrink:0;font-variant-numeric:tabular-nums}
+.todo-item.overdue .ti-time{color:var(--err)}
+.ti-del{font-size:.68rem;color:var(--text-3);opacity:0;transition:opacity .15s;flex-shrink:0;padding:0 2px}
+.todo-item:hover .ti-del{opacity:1}
+.ti-del:hover{color:var(--err)}
+.todo-empty{text-align:center;font-size:.72rem;color:var(--text-3);padding:18px 0;line-height:1.7}
+.todo-foot{font-size:.62rem;color:var(--text-3);text-align:center;margin-top:8px;letter-spacing:.03em}
+
 #timerPanel{
   position:fixed;right:20px;bottom:90px;z-index:10;
   width:220px;
@@ -250,21 +295,6 @@ body{background:#070711;-webkit-font-smoothing:antialiased;position:relative}
 /* ── Q版角色 ── */
 .q-char{position:fixed;z-index:400;width:96px;pointer-events:none;opacity:0;transition:opacity .32s;user-select:none;filter:drop-shadow(0 6px 16px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(94,197,180,.25))}
 .q-char.on{opacity:1;pointer-events:all}
-.qc-look,.qc-turn,.qc-breathe{display:block;width:100%;height:auto;line-height:0}
-.qc-look{transform-origin:50% 88%;transition:transform .45s cubic-bezier(.34,1.4,.64,1);will-change:transform}
-.qc-turn{transform-origin:50% 92%;will-change:transform}
-.qc-turn.idle-turn{animation:qcIdleTurn 7.5s ease-in-out infinite}
-.qc-breathe{animation:qcBreathe 3.6s ease-in-out infinite;transform-origin:50% 100%;will-change:transform}
-.qc-breathe.d2{animation-duration:4.1s;animation-delay:-1.3s}
-.qc-breathe.d3{animation-duration:3.2s;animation-delay:-2.1s}
-@keyframes qcBreathe{
-  0%,100%{transform:translateY(0) scaleY(1) scaleX(1)}
-  45%{transform:translateY(-2px) scaleY(1.022) scaleX(.994)}
-  70%{transform:translateY(-1px) scaleY(1.012) scaleX(.997)}
-}
-/* 待机时偶尔轻轻歪头 —— 模拟"注意到你"的生动感 */
-@keyframes qcIdleTurn{
-  0%,88%,100%{transform:rotate(0)}
   92%{transform:rotate(-2.2deg)}
   96%{transform:rotate(1.6deg)}
 }
@@ -317,6 +347,11 @@ html,body{height:100dvh}
   .tl-hint{font-size:.66rem}
 
   #timerPanel{right:12px;left:auto;bottom:calc(var(--mbh,120px) + 10px);width:min(250px,calc(100vw - 24px))}
+  #todoPanel{right:12px;left:12px;width:auto;bottom:calc(var(--mbh,120px) + var(--tp-h,300px) + 20px);max-height:240px}
+  .todo-list{max-height:150px}
+  .ti-del{opacity:.75}
+  .todo-input,.todo-time{font-size:.82rem;padding:9px}
+  .todo-addbtn{width:38px;font-size:1.05rem}
   #timerPanel.collapsed{width:130px}
   .t-input{width:64px;padding:8px}
   .dir-btn,.mode-pill{padding:8px 12px}
@@ -395,6 +430,25 @@ html,body{height:100dvh}
 </div>
 
 <!-- 计时面板（右侧，可收起） -->
+<!-- 待办清单（番茄钟上方） -->
+<div id="todoPanel">
+  <div class="tp-header" onclick="toggleTodo()">
+    <span class="tp-title">📋 待办清单</span>
+    <span class="tp-badge" id="todoBadge">0/0</span>
+    <span class="tp-toggle">▼</span>
+  </div>
+  <div class="tp-body">
+    <div class="todo-add">
+      <input type="text" id="todoInput" class="todo-input" placeholder="添加事项…" maxlength="60">
+      <input type="time" id="todoTime" class="todo-time">
+      <button class="todo-addbtn" onclick="addTodo()" title="添加">＋</button>
+    </div>
+    <div class="todo-err" id="todoErr"></div>
+    <div class="todo-list" id="todoList"></div>
+    <div class="todo-foot" id="todoFoot">点击圆圈完成 · 双击删除</div>
+  </div>
+</div>
+
 <div id="timerPanel">
   <div class="tp-header" onclick="toggleTimer()">
     <span class="tp-title">⏳ 番茄钟</span>
@@ -572,6 +626,135 @@ function showToast(msg,isErr){
   clearTimeout(t._timer);
   t._timer=setTimeout(function(){t.classList.remove("show");},2600);
 }
+/* ══════════ 待办清单 ══════════ */
+var TODO_KEY="endfield_todo_v1";
+var todoItems=[];
+function loadTodos(){
+  try{
+    var raw=localStorage.getItem(TODO_KEY);
+    var arr=raw?JSON.parse(raw):[];
+    if(!Array.isArray(arr)) arr=[];
+    return arr.filter(function(t){return t&&typeof t.text==="string"&&t.text.trim();})
+      .map(function(t){
+        return {
+          id:(typeof t.id==="number")?t.id:Date.now()+Math.floor(Math.random()*9999),
+          text:String(t.text).slice(0,80),
+          time:(typeof t.time==="string")?t.time:"",
+          done:!!t.done,
+          createdAt:(typeof t.createdAt==="number")?t.createdAt:Date.now()
+        };
+      });
+  }catch(e){return [];}
+}
+function saveTodos(){
+  try{localStorage.setItem(TODO_KEY,JSON.stringify(todoItems));}catch(e){}
+}
+function toggleTodo(){
+  var pnl=document.getElementById("todoPanel");
+  pnl.classList.toggle("collapsed");
+  try{localStorage.setItem(TODO_KEY+"_collapsed",pnl.classList.contains("collapsed")?"1":"0");}catch(e){}
+}
+function todoError(msg){
+  var el=document.getElementById("todoErr");
+  if(!el) return;
+  if(!msg){el.textContent="";el.classList.remove("show");return;}
+  el.textContent=msg;el.classList.add("show");
+}
+function addTodo(){
+  var inp=document.getElementById("todoInput");
+  var timeEl=document.getElementById("todoTime");
+  var txt=inp.value.trim();
+  if(!txt){
+    inp.classList.add("err");todoError("请输入待办内容");inp.focus();return;
+  }
+  if(txt.length>60){
+    inp.classList.add("err");todoError("内容过长（最多 60 字）");return;
+  }
+  var dup=todoItems.some(function(t){return t.text===txt&&!t.done;});
+  if(dup){
+    inp.classList.add("err");todoError("已存在相同事项");return;
+  }
+  inp.classList.remove("err");todoError("");
+  todoItems.push({
+    id:Date.now()+Math.floor(Math.random()*9999),
+    text:txt,time:timeEl.value||"",done:false,createdAt:Date.now()
+  });
+  saveTodos();
+  inp.value="";timeEl.value="";
+  renderTodos();
+  showToast("已添加待办");
+}
+function toggleTodoItem(id){
+  for(var i=0;i<todoItems.length;i++){
+    if(todoItems[i].id===id){todoItems[i].done=!todoItems[i].done;break;}
+  }
+  saveTodos();renderTodos();
+}
+function removeTodoItem(id){
+  todoItems=todoItems.filter(function(t){return t.id!==id;});
+  saveTodos();renderTodos();
+  showToast("已删除待办");
+}
+function isOverdue(t){
+  if(!t.time||t.done) return false;
+  var form=new Date(t.createdAt||0);
+  var now=new Date();
+  // 只看"同一天创建"的待办，避免跨天误判
+  var sameDay = form.getFullYear()===now.getFullYear()
+             && form.getMonth()===now.getMonth()
+             && form.getDate()===now.getDate();
+  if(!sameDay) return false;
+  var cur=now.getHours()*60+now.getMinutes();
+  var pr=t.time.split(":");
+  var due=parseInt(pr[0],10)*60+parseInt(pr[1],10);
+  if(isNaN(due)) return false;
+  return cur>due;
+}
+function renderTodos(){
+  var list=document.getElementById("todoList");
+  var badge=document.getElementById("todoBadge");
+  if(!list||!badge) return;
+  var doneCount=todoItems.filter(function(t){return t.done;}).length;
+  badge.textContent=doneCount+"/"+todoItems.length;
+  list.innerHTML="";
+  if(todoItems.length===0){
+    var em=document.createElement("div");
+    em.className="todo-empty";
+    em.textContent="暂无待办事项";
+    list.appendChild(em);
+    return;
+  }
+  var sorted=todoItems.slice().sort(function(a,b){
+    if(a.done!==b.done) return a.done?1:-1;
+    return a.createdAt-b.createdAt;
+  });
+  sorted.forEach(function(t){
+    var row=document.createElement("div");
+    row.className="todo-item"+(t.done?" done":"")+(isOverdue(t)?" overdue":"");
+    var chk=document.createElement("div");
+    chk.className="ti-check";chk.textContent=t.done?"\u2713":"";
+    var tx=document.createElement("div");
+    tx.className="ti-text";tx.textContent=t.text;
+    row.appendChild(chk);row.appendChild(tx);
+    if(t.time){
+      var tm=document.createElement("div");
+      tm.className="ti-time";tm.textContent=t.time;
+      row.appendChild(tm);
+    }
+    var del=document.createElement("div");
+    del.className="ti-del";del.textContent="\u2715";del.title="删除";
+    del.onclick=function(e){e.stopPropagation();removeTodoItem(t.id);};
+    row.appendChild(del);
+    row.onclick=function(){toggleTodoItem(t.id);};
+    list.appendChild(row);
+  });
+}
+function syncTodoPos(){
+  var tp=document.getElementById("timerPanel");
+  if(!tp) return;
+  document.documentElement.style.setProperty("--tp-h",tp.offsetHeight+"px");
+}
+
 var STORE_KEY="endfield_tavern_v1";
 function todayKey(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
 function loadStore(){
@@ -677,18 +860,12 @@ w.style.left=(sx-48)+"px";w.style.top=(sy-48)+"px";
 const bub=document.createElement("div");
 bub.className="q-bubble";
 bub.textContent=c.quotes[Math.floor(Math.random()*c.quotes.length)];
-// 视线层 > 呼吸层 > 图片
-const look=document.createElement("div");look.className="qc-look";
-const turn=document.createElement("div");turn.className="qc-turn idle-turn";
-const breath=document.createElement("div");breath.className="qc-breathe "+["","d2","d3"][Math.floor(Math.random()*3)];
 const img=document.createElement("img");
 img.className="qc-body";img.src=c.img;img.alt=c.name;img.draggable=false;
-breath.appendChild(img);turn.appendChild(breath);look.appendChild(turn);
-w.appendChild(bub);w.appendChild(look);
+w.appendChild(bub);w.appendChild(img);
 document.getElementById("qCont").appendChild(w);
 requestAnimationFrame(function(){requestAnimationFrame(function(){w.classList.add("on");w.classList.remove("pop");});});
 qChars[c.id]=w;
-w._lookEl=look;
 img.addEventListener("click",function(e){
   e.stopPropagation();
   bub.textContent=c.quotes[Math.floor(Math.random()*c.quotes.length)];
@@ -703,42 +880,7 @@ img.addEventListener("dblclick",function(e){
   setTimeout(function(){w.remove();delete qChars[c.id];},350);
 });
 makeDrag(w,img);
-updateGazeSingle(w);
 }
-
-/* ══════════ 视线追踪 ══════════ */
-var gazeX=0,gazeY=0,gazeRaf=null;
-function updateGazeSingle(el){
-  if(!el||!el._lookEl) return;
-  if(el.classList.contains("dragging")){
-    el._lookEl.style.transform=el._lookEl._frozen||"";
-    return;
-  }
-  var r=el.getBoundingClientRect();
-  if(!r.width) return;
-  var cx=r.left+r.width/2, cy=r.top+r.height*0.35;
-  var ang=Math.atan2(gazeY-cy,gazeX-cx);
-  var dx=Math.cos(ang), dy=Math.sin(ang);
-  // 倾斜幅度限制在 ±7°
-  var tilt=dx*7;
-  el._lookEl.style.transform="rotate("+tilt.toFixed(2)+"deg) translateX("+(dx*3).toFixed(1)+"px) translateY("+(dy*2).toFixed(1)+"px)";
-}
-function updateAllGaze(){
-  gazeRaf=null;
-  for(var k in qChars){ if(qChars[k]) updateGazeSingle(qChars[k]); }
-}
-var gazeLast=0;
-function onPointerMove(e){
-  var p=e.touches?e.touches[0]:e;
-  if(!p) return;
-  gazeX=p.clientX; gazeY=p.clientY;
-  var now=Date.now();
-  if(now-gazeLast<48) return;   // ~20fps 节流，省性能
-  gazeLast=now;
-  updateAllGaze();
-}
-document.addEventListener("mousemove",onPointerMove,{passive:true});
-document.addEventListener("touchmove",onPointerMove,{passive:true});
 
 function moveQC(el,x,y){el.style.left=x+"px";el.style.top=y+"px";}
 function makeDrag(el,h){let d=false,ox=0,oy=0;h.addEventListener("mousedown",function(e){d=true;ox=e.clientX-parseInt(el.style.left||0);oy=e.clientY-parseInt(el.style.top||0);el.classList.add("dragging");e.preventDefault();document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);});h.addEventListener("touchstart",function(e){d=true;const t=e.touches[0];ox=t.clientX-parseInt(el.style.left||0);oy=t.clientY-parseInt(el.style.top||0);el.classList.add("dragging");document.addEventListener("touchmove",mvt,{passive:false});document.addEventListener("touchend",upt);},{passive:true});function mv(e){if(!d)return;el.style.left=(e.clientX-ox)+"px";el.style.top=(e.clientY-oy)+"px";}function mvt(e){if(!d)return;if(e.cancelable)e.preventDefault();const t=e.touches[0];el.style.left=(t.clientX-ox)+"px";el.style.top=(t.clientY-oy)+"px";}function up(){d=false;el.classList.remove("dragging");document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);}function upt(){d=false;el.classList.remove("dragging");document.removeEventListener("touchmove",mvt);document.removeEventListener("touchend",upt);}}
@@ -1067,6 +1209,11 @@ function toggleTrackPopup(){document.getElementById("trackPopup").classList.togg
 document.addEventListener("click",function(e){if(!e.target.closest("#trackPopup")&&!e.target.closest(".track-list-btn"))document.getElementById("trackPopup").classList.remove("open");});
 
 buildRow();buildTL();renderStats();
+todoItems=loadTodos();renderTodos();
+try{if(localStorage.getItem(TODO_KEY+'_collapsed')==='1')document.getElementById('todoPanel').classList.add('collapsed');}catch(e){}
+syncTodoPos();
+window.addEventListener('resize',syncTodoPos);
+setInterval(syncTodoPos,1500);
 
 /* ── 恢复音量 / 模式 / 角色 ── */
 (function(){
